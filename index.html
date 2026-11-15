@@ -49,17 +49,26 @@ h1{font-family:var(--font-display);font-weight:800;font-size:clamp(26px,6vw,36px
 .chip.b{background:radial-gradient(circle at 35% 30%,#666,#0a0a0a 70%)}
 .chip.w{background:radial-gradient(circle at 35% 30%,#fff,#c7cbc5 78%);box-shadow:inset 0 0 0 1px rgba(0,0,0,.28)}
 
-.status{font-size:14px;padding:10px 14px;border-radius:10px;background:var(--surface);border:1px solid var(--line);min-height:44px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* 状態欄は高さ固定（候補の選択などで下の立方体・断面盤が動かないように）。
+   狭い画面：上段=手番など1行・下段=補足や操作ボタン（文は2行まで）。広い画面：左右に並べて1行 */
+.status{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:32px 40px;gap:4px;align-items:center;
+  font-size:14px;padding:8px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+@media (min-width:720px){.status{grid-template-columns:auto minmax(0,1fr);grid-template-rows:40px;gap:0 18px;padding:8px 14px}}
+.status .s1,.status .s2{display:flex;align-items:center;gap:8px;min-width:0;height:100%;overflow:hidden}
+.status .s1{white-space:nowrap}
+.status .tx{flex:1 1 auto;min-width:0}
+.status .s1 .tx{overflow:hidden;text-overflow:ellipsis}
+.status .s2 .tx{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-size:13px;line-height:1.45}
+.status .ka{word-break:keep-all;overflow-wrap:anywhere}
 .status strong{font-weight:700}
-.status .grow{flex:1 1 180px;min-width:0}
 .status .note{color:var(--muted);font-size:12.5px}
+.status .btn{flex:none;padding:5px 12px;font-size:12.5px}
 .status.over{border-color:var(--brass)}
-.status .full{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0}
-.opts{max-height:140px;overflow:auto}
-.opt{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:5px 10px;cursor:pointer;font-variant-numeric:tabular-nums;display:flex;gap:6px;align-items:baseline}
-.opt small{color:var(--muted);font-size:11px}
-.opt.on{border-color:var(--brass);background:var(--brass);color:var(--on-brass)}
-.opt.on small{color:inherit}
+.status .opts{flex:1 1 auto;min-width:0;align-self:stretch;display:flex;align-items:center;gap:6px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+.status .opt{flex:none;font:inherit;font-size:13px;line-height:1.3;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:3px 9px;cursor:pointer;font-variant-numeric:tabular-nums;display:flex;gap:6px;align-items:baseline;white-space:nowrap}
+.status .opt small{color:var(--muted);font-size:11px}
+.status .opt.on{border-color:var(--brass);background:var(--brass);color:var(--on-brass)}
+.status .opt.on small{color:inherit}
 
 .play{display:grid;gap:16px}
 @media (min-width:860px){.play{grid-template-columns:1.1fr 1fr;align-items:start}}
@@ -547,28 +556,37 @@ function render(){
   // 状態表示
   const empty=S-nb-nw;statusEl.classList.toggle('over',st.over);
   const intro=st.hist.length===0&&st.last<0?`中央の2×2×2（${N/2}段と${N/2+1}段）に黒白4個ずつ置いて開始。`:'';
+  const lastTxt=st.last>=0?`直前：${coord(st.last)}　`:'';
+  const tx=(h,c='')=>`<span class="tx${c}">${h}</span>`;
+  const btn=(act,label,primary,off)=>`<button class="btn${primary?' primary':''}" type="button" data-act="${act}"${off?' disabled':''}>${label}</button>`;
+  let s1,s2;
   if(st.over){
     const res=nb===nw?'引き分け':`${nb>nw?'黒':'白'}の勝ち`;
-    statusEl.innerHTML=`<span class="grow"><strong>終局</strong> 黒 ${nb} − 白 ${nw} で${res}（空き ${empty}）</span><button class="btn" type="button" data-act="result">結果を見る</button><button class="btn primary" type="button" data-act="new">もう一局</button>`;
+    s1=tx(`<strong>終局</strong>　黒 ${nb} − 白 ${nw} で${res}`);
+    s2=tx(`<span class="note">空き ${empty}</span>`)+btn('result','結果を見る')+btn('new','もう一局',true);
   }else if(isCPU(st.turn)){
-    if(cvc&&ui.paused)statusEl.innerHTML=`<span class="grow">${st.pass}<strong>一時停止中</strong>。次は${name(st.turn)}の番${st.last>=0?`　直前：${coord(st.last)}`:''}</span><button class="btn primary" type="button" data-act="resume">再開</button>`;
-    else statusEl.innerHTML=`<span class="grow">${intro}${st.pass}<strong>${name(st.turn)}（CPU）</strong>が考えています…${cvc&&st.last>=0?`　直前：${coord(st.last)}`:''}</span>`;
+    if(cvc&&ui.paused){s1=tx(`<strong>一時停止中</strong>　次は${name(st.turn)}の番`);s2=tx(`${st.pass}<span class="note">${lastTxt}</span>`)+btn('resume','再開',true);}
+    else{s1=tx(`<strong>${name(st.turn)}（CPU）</strong>が考えています…`);s2=tx(`${intro}${st.pass}<span class="note">${lastTxt}</span>`);}
   }else{
-    let html='';
+    const who=st.mode==='pvp'?name(st.turn):`あなた（${name(st.turn)}）`;
+    s1=tx(`<strong>${who}の番</strong>　置ける場所は ${moves.size}か所`);
     if(ui.target>=0){
       const op=optsFor(ui.target);
-      html+=`<div class="full"><span class="grow"><strong>${coord(ui.target)}</strong> の${name(3-st.turn)}を返せる手：<strong>${op.length?op.length+'通り':'今はありません'}</strong></span><button class="btn sm" type="button" data-act="untarget">閉じる</button></div>`;
-      if(op.length)html+=`<div class="full opts">${op.map(m=>`<button type="button" class="opt${m===ui.sel?' on':''}" data-opt="${m}">${coord(m)}<small>${moves.get(m).length}個</small></button>`).join('')}</div>`;
+      s1=tx(`<strong>${coord(ui.target)}</strong>の${name(3-st.turn)}を返せる手 <strong>${op.length?op.length+'通り':'なし'}</strong>`)+btn('untarget','閉じる');
+      s2=op.length?`<div class="opts">${op.map(m=>`<button type="button" class="opt${m===ui.sel?' on':''}" data-opt="${m}">${coord(m)}<small>${moves.get(m).length}個</small></button>`).join('')}</div>`+btn('place','置く',true,ui.sel<0)
+        :tx(`<span class="note">ほかの石をタップするか「閉じる」で戻ります</span>`);
+    }else if(ui.sel>=0){
+      s2=tx(`<strong>${coord(ui.sel)}</strong> に置くと <strong>${moves.get(ui.sel).length}個</strong> 返ります`,' ka')+btn('cancel','やめる')+btn('place','置く',true);
+    }else{
+      // パスの知らせがあるときは操作の案内を省いて2行に収める
+      s2=tx(`${intro}${st.pass}<span class="note">${lastTxt}${st.pass?'':'相手の石をタップすると、それを返せる手を表示'}</span>`);
     }
-    if(ui.sel>=0){
-      const n=moves.get(ui.sel).length;
-      html+=`<span class="grow"><strong>${coord(ui.sel)}</strong> に置くと <strong>${n}個</strong> 返ります</span><button class="btn" type="button" data-act="cancel">やめる</button><button class="btn primary" type="button" data-act="place">置く</button>`;
-    }else if(ui.target<0){
-      const who=st.mode==='pvp'?name(st.turn):`あなた（${name(st.turn)}）`;
-      html+=`<span class="grow">${intro}${st.pass}<strong>${who}の番</strong>。置ける場所は ${moves.size}か所${st.last>=0?`　直前：${coord(st.last)}`:''}　<span class="note">相手の石をタップすると、それを返せる手を表示</span></span>`;
-    }
-    statusEl.innerHTML=html;
   }
+  // 手の一覧を横にスクロールしていたら、描き直しても位置を保つ（同じ手をもう一度押して着手できるように）
+  const oldOpts=statusEl.querySelector('.opts'),keep=oldOpts&&statusEl.dataset.target===String(ui.target)?oldOpts.scrollLeft:0;
+  statusEl.innerHTML=`<div class="s1">${s1}</div><div class="s2">${s2}</div>`;
+  statusEl.dataset.target=ui.target;
+  if(keep)statusEl.querySelector('.opts')?.scrollTo({left:keep});
   // 切る向き
   document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.axis===ui.axis));
   // 断面タブ
