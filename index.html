@@ -196,10 +196,17 @@ details li{margin:4px 0}
 /* ページの土台（余白・セーフエリア） */
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{margin:0}
+/* 作品一覧(TOPページ)に戻るボタン */
+.back-nav{margin:0 0 -6px}
+.back-to-list{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border:1px solid var(--line);border-radius:999px;
+  font-family:inherit;font-size:12.5px;line-height:1.5;color:var(--muted);text-decoration:none;transition:color .15s,border-color .15s}
+.back-to-list:hover{color:var(--ink);border-color:var(--muted)}
+.back-to-list:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 </style>
 </head>
 <body>
 <div class="app">
+  <nav class="back-nav"><a class="back-to-list" href="https://yume-towa.github.io/">← 一覧に戻る</a></nav>
   <header>
     <h1>キューブリバーシ<span class="sub" id="subtitle">8 × 8 × 8 ＝ 512マス・26方向に挟む</span></h1>
     <div class="score">
